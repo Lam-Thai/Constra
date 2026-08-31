@@ -32,11 +32,31 @@ specific ways this project breaks.
 
 ## SQL and input safety
 
-- Every query touching user input uses the `sql` tagged template's
-  parameterization — no string-concatenated or manually interpolated SQL.
-- API routes validate `type` (enum), numeric bounds, and `page_number`
-  server-side, not just via DB constraints (which give a 500, not a clean
-  400).
+- All queries go through the Django ORM (`.filter()`, `.get()`, etc.) —
+  flag any `.raw()` or `.extra()` call, and double-check it uses `%s`
+  placeholders rather than Python string interpolation if one exists.
+- DRF serializers validate `type` (enum) and coordinate bounds
+  server-side — not just Django model `validators=[...]` (those aren't
+  enforced on `.save()` without an explicit `full_clean()` call) and not
+  just DB constraints (which give a 500, not a clean 400).
+- URL routes use typed converters (`<uuid:id>`, `<int:page>`) so a
+  malformed path param 404s at the routing layer instead of throwing an
+  unhandled exception deeper in the view.
+
+## Django-specific
+
+- `CORS_ALLOWED_ORIGINS` is an explicit list (dev frontend origin(s)),
+  never `CORS_ALLOW_ALL_ORIGINS=True`, and `CORS_ALLOW_CREDENTIALS` is
+  only `True` if the project actually added authentication.
+- No `@csrf_exempt` decorators or global CSRF disabling — DRF's `APIView`
+  is already safely CSRF-exempt by default; see `neon-postgres-setup` for
+  why disabling it further isn't needed and would be a red flag if found.
+- `SECRET_KEY` and `DATABASE_URL` come from environment variables, never
+  hardcoded in `settings.py` or committed in `backend/.env`.
+- Migrations in the diff actually match the models — a model field change
+  without a corresponding migration file is a bug that only surfaces at
+  deploy/restart time, not in the running dev server that already has the
+  column cached.
 
 ## OCR-specific
 

@@ -20,7 +20,13 @@ Your focus:
   green = "capture", with the ability to select, resize, and delete an
   existing rectangle.
 - Calling the backend API to load/save annotations per page, including
-  optimistic UI so drawing feels instant.
+  optimistic UI so drawing feels instant. The backend is a separate Django
+  service (`backend/`, default `http://localhost:8000`), not a Next.js API
+  route — use an `NEXT_PUBLIC_API_BASE_URL` env var for the base URL, and
+  expect DRF's trailing-slash URL convention (e.g. `/api/annotations/<id>/`).
+  CORS is the backend's responsibility (`django-cors-headers`), but since
+  there's no auth, don't send `credentials: "include"` — it isn't needed
+  and would require the backend to allow credentialed CORS unnecessarily.
 - Keeping components small and typed; avoid client-side state libraries
   unless the task genuinely needs them (React state/context is enough for a
   project this size).

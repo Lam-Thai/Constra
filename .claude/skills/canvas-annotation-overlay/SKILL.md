@@ -75,6 +75,11 @@ produce out-of-bounds coordinates the backend will reject.
 
 ## Syncing with the backend
 
+- The backend is a separate Django service (default `http://localhost:8000`,
+  distinct from the Next.js dev server on `:3000`) — read the base URL from
+  `process.env.NEXT_PUBLIC_API_BASE_URL`, never hardcode it, and remember
+  DRF's routes end in a trailing slash (`/api/annotations/<id>/`, not
+  `/api/annotations/<id>`) — a missing slash 404s.
 - On finalize (pointerup) or after a resize/move/delete settles, call the
   API immediately — don't batch or silently discard failures. Optimistic
   update: add the rectangle to local state right away, then reconcile with
