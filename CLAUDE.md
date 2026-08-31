@@ -39,16 +39,21 @@ point for any assigned task is the **`assign-task`** skill — invoke it
 whenever the PM hands off a task or issue number, rather than calling a
 single agent ad hoc.
 
-Roles (`.claude/agents/`):
+Roles (`.claude/agents/`), each backed by a playbook skill under
+`.claude/skills/` with the concrete how-to for that domain:
 
-| Agent | Model | Role |
-|---|---|---|
-| `product-planner` | Opus 5, web | Scopes ambiguous tasks into Goal/Scope/Acceptance Criteria/Out of Scope |
-| `tech-researcher` | Opus 5, web | Pulled in ad hoc for library/industry decisions |
-| `backend-developer` | Sonnet 5 | Schema, API routes, persistence — goes **first**, defines the contract |
-| `frontend-developer` | Sonnet 5 | UI, canvas drawing, page nav — builds against the backend contract |
-| `ocr-integration-engineer` | Sonnet 5 | Local OCR on green rectangles — builds against the backend contract |
-| `code-reviewer` | Sonnet 5 | Reviews everyone's diff — runs **last** |
+| Agent | Model | Role | Skill it uses |
+|---|---|---|---|
+| `product-planner` | Opus 5, web | Scopes ambiguous tasks into Goal/Scope/Acceptance Criteria/Out of Scope | `scope-writeup` |
+| `tech-researcher` | Opus 5, web | Pulled in ad hoc for library/industry decisions | `tech-evaluation` |
+| `backend-developer` | Sonnet 5 | Schema, API routes, persistence — goes **first**, defines the contract | `neon-postgres-setup` |
+| `frontend-developer` | Sonnet 5 | UI, canvas drawing, page nav — builds against the backend contract | `canvas-annotation-overlay` |
+| `ocr-integration-engineer` | Sonnet 5 | Local OCR on green rectangles — builds against the backend contract | `local-ocr-pipeline` |
+| `code-reviewer` | Sonnet 5 | Reviews everyone's diff — runs **last** | `annotation-review-checklist` |
+
+The `assign-task` skill is the PM-facing orchestration entry point; the
+six skills above are what each agent actually executes against once
+delegated to.
 
 Dependency order: `product-planner` (if unscoped) → `backend-developer` →
 `frontend-developer` + `ocr-integration-engineer` (parallel) →
