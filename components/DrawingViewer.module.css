@@ -1,0 +1,92 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px;
+  color: #171717;
+  background: #ffffff;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.pageNav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.pageNav button {
+  padding: 6px 12px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  color: #222;
+  cursor: pointer;
+}
+
+.pageNav button:hover:not(:disabled) {
+  background: #f2f2f2;
+}
+
+.pageNav button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.jumpForm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.jumpForm button {
+  padding: 6px 10px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  color: #222;
+  cursor: pointer;
+}
+
+.jumpForm button:hover {
+  background: #f2f2f2;
+}
+
+.pageJumpInput {
+  width: 48px;
+  padding: 6px 8px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  color: #222;
+  text-align: center;
+}
+
+.status {
+  padding: 40px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+.statusError {
+  color: #a91d24;
+}

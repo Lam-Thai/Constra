@@ -1,0 +1,10 @@
+.status {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  font-size: 14px;
+  color: #666;
+  text-align: center;
+}

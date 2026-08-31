@@ -1,0 +1,135 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.modeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  color: #222;
+  cursor: pointer;
+}
+
+.modeButton:hover {
+  background: #f2f2f2;
+}
+
+.modeButtonActive {
+  border-color: #222;
+  background: #222;
+  color: #fff;
+}
+
+.modeButtonActive:hover {
+  background: #383838;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.swatchIgnore {
+  background: #e5484d;
+}
+
+.swatchCapture {
+  background: #30a46c;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.deleteButton {
+  padding: 6px 12px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #e5484d;
+  background: #fff;
+  color: #e5484d;
+  cursor: pointer;
+}
+
+.deleteButton:hover {
+  background: #fff1f0;
+}
+
+.deleteButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.hint {
+  font-size: 12px;
+  color: #666;
+}
+
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #e5484d;
+  background: #fff1f0;
+  color: #a91d24;
+  font-size: 13px;
+}
+
+.errorBanner button {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+.imageStage {
+  position: relative;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  line-height: 0;
+  background: #eee;
+}
+
+.pageImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.loadingNote {
+  font-size: 13px;
+  color: #666;
+}
