@@ -1,16 +1,47 @@
+import os
+
 from django.shortcuts import get_object_or_404
 from rest_framework import status
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Annotation, Drawing, Page
-from .serializers import AnnotationSerializer, DrawingDetailSerializer, DrawingListSerializer
+from .serializers import (
+    AnnotationSerializer,
+    DrawingDetailSerializer,
+    DrawingListSerializer,
+    DrawingUploadSerializer,
+)
+from .services import SourceFileError, create_drawing_from_image, create_or_update_drawing_from_pdf_bytes
 
 
 class DrawingListView(APIView):
+    # JSONParser is DRF's default; MultiPartParser/FormParser are needed for
+    # the file-upload POST below (multipart/form-data request bodies).
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
     def get(self, request):
         drawings = Drawing.objects.all().order_by("name")
         return Response(DrawingListSerializer(drawings, many=True).data)
+
+    def post(self, request):
+        upload = DrawingUploadSerializer(data=request.data)
+        upload.is_valid(raise_exception=True)
+        name = upload.validated_data["name"]
+        uploaded_file = upload.validated_data["file"]
+        ext = os.path.splitext(uploaded_file.name or "")[1].lower()
+
+        try:
+            if ext == ".pdf":
+                pdf_bytes = uploaded_file.read()
+                drawing = create_or_update_drawing_from_pdf_bytes(name, pdf_bytes)
+            else:
+                drawing = create_drawing_from_image(name, uploaded_file)
+        except SourceFileError as err:
+            return Response({"file": [str(err)]}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(DrawingDetailSerializer(drawing).data, status=status.HTTP_201_CREATED)
 
 
 class DrawingDetailView(APIView):

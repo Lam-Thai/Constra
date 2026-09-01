@@ -85,9 +85,25 @@ cp .env.example .env.local   # NEXT_PUBLIC_API_BASE_URL, defaults to http://loca
 npm run dev                  # http://localhost:3000
 ```
 
-Both services need to be running for the app to work. From the repo root,
-`npm run dev` is a shortcut that proxies to the frontend only — the backend
-still needs to be started separately, as above.
+Both services need to be running for the app to work. Running two
+long-lived dev servers in the *same* terminal window doesn't work — the
+first command blocks it, so the second either hangs or never starts. Use
+one of these instead:
+
+```bash
+# Option A — one command starts both, from the repo root
+npm install        # first time only, installs the `concurrently` helper
+npm run dev:all
+```
+
+```bash
+# Option B — two separate terminal windows/tabs, one per service
+# terminal 1: cd backend && ... && python manage.py runserver
+# terminal 2: cd frontend && npm run dev
+```
+
+`npm run dev` (no `:all`) is a shortcut that proxies to the frontend only —
+useful if the backend is already running some other way.
 
 ## How this was built: an AI team, not a single assistant
 

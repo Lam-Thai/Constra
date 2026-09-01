@@ -139,6 +139,14 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # values when importing pages (dev default matches `manage.py runserver`).
 BACKEND_BASE_URL = os.environ.get("BACKEND_BASE_URL", "http://localhost:8000")
 
+# Upload size limits — construction drawings (multi-page PDFs, scanned
+# images) commonly exceed Django's 2.5MB defaults; bump both so a
+# legitimate upload via POST /api/drawings/ isn't rejected before it
+# reaches DrawingUploadSerializer's own validation. Local dev only — no
+# reverse proxy in front of runserver to also configure.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024  # 25MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024  # 25MB
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 

@@ -3,6 +3,11 @@
   "private": true,
   "description": "Root convenience scripts. Frontend lives in frontend/, backend in backend/ — see CLAUDE.md.",
   "scripts": {
-    "dev": "npm run dev --prefix frontend"
+    "dev": "npm run dev --prefix frontend",
+    "dev:backend": "backend\\.venv\\Scripts\\python.exe backend\\manage.py runserver 8000",
+    "dev:all": "concurrently -n backend,frontend -c blue,green \"npm run dev:backend\" \"npm run dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   }
 }

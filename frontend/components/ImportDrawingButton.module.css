@@ -1,0 +1,56 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wrapper button {
+  padding: 6px 12px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  color: #222;
+  cursor: pointer;
+}
+
+.wrapper button:hover:not(:disabled) {
+  background: #f2f2f2;
+}
+
+.wrapper button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.confirmForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nameInput {
+  padding: 6px 8px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  color: #222;
+}
+
+.error {
+  color: #a91d24;
+  font-size: 13px;
+}
+
+.warning {
+  color: #a15c00;
+  font-size: 13px;
+  max-width: 320px;
+}
