@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import type { Annotation, AnnotationType, PageInfo } from "@/lib/types";
 import { apiUrl } from "@/lib/api";
+import Spinner from "./Spinner";
 import {
   type Corner,
   type Point,
@@ -15,12 +17,15 @@ import {
 } from "@/lib/rect";
 import styles from "./AnnotationCanvas.module.css";
 
+// Visual-only: colors rectangles are drawn/filled with, keyed by
+// annotation type — clearly red = ignore, green = capture, unchanged
+// meaning from before this restyle. Not involved in coordinate math.
 const COLORS: Record<AnnotationType, { stroke: string; fill: string }> = {
   ignore: { stroke: "#e5484d", fill: "rgba(229, 72, 77, 0.18)" },
   capture: { stroke: "#30a46c", fill: "rgba(48, 164, 108, 0.18)" },
 };
 
-const SELECTED_STROKE = "#1a73e8";
+const SELECTED_STROKE = "#3b6cf4";
 const MIN_DRAG_PX = 4;
 const HANDLE_SIZE = 9;
 const CORNERS: Corner[] = ["nw", "ne", "sw", "se"];
@@ -59,6 +64,18 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
 
   const svgRef = useRef<SVGSVGElement | null>(null);
 
+  // Mirrors `annotations` for synchronous reads inside callbacks that can't
+  // depend on `annotations` directly (see deleteAnnotation below, which is
+  // wrapped in `useCallback(..., [])` so its identity stays stable for the
+  // keydown-effect below). Updated in an effect rather than read directly
+  // from `annotations`/`prev` — by the time a click handler can fire,
+  // rendering has already committed and this effect has already run, so
+  // it's always current by the time deleteAnnotation reads it.
+  const annotationsRef = useRef<Annotation[]>(annotations);
+  useEffect(() => {
+    annotationsRef.current = annotations;
+  }, [annotations]);
+
   // Tracks in-flight create POSTs, keyed by the temp id of the optimistic
   // annotation they belong to. A delete/move/resize requested on an
   // annotation that's still "saving" looks itself up here and awaits the
@@ -67,6 +84,18 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
   // layer before it ever reaches a real row) — see createAnnotation,
   // deleteAnnotation, and updateAnnotation below.
   const pendingCreatesRef = useRef<Map<string, Promise<Annotation>>>(new Map());
+
+  // Rendering-only: a stable React key per annotation that survives the
+  // temp-id -> real-id swap in createAnnotation's success handler below, so
+  // the purely cosmetic mount-in animation on each rectangle doesn't replay
+  // when the id changes underneath it. Doesn't affect coordinates,
+  // persistence, or any interaction handling — see renderKeyFor. State (not
+  // a ref) because the value is read during render, and refs can't be read
+  // during render.
+  const [renderKeys, setRenderKeys] = useState<Record<string, string>>({});
+  function renderKeyFor(id: string): string {
+    return renderKeys[id] ?? id;
+  }
 
   // Load annotations for this page fresh every time the page changes (or on
   // first mount) — this is the client-side half of persistence: the backend
@@ -142,6 +171,16 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
 
       createPromise
         .then((saved) => {
+          // Carry the tempId's render key forward to the real id (see
+          // renderKeys above) before the id swap below — rendering concern
+          // only.
+          setRenderKeys((prev) => {
+            const key = prev[tempId] ?? tempId;
+            const next = { ...prev };
+            delete next[tempId];
+            next[saved.id] = key;
+            return next;
+          });
           // Adopt the server's real id/timestamps, but keep whatever rect is
           // currently in local state: a move/resize may have started against
           // the temp id while this create was still in flight, and its own
@@ -220,11 +259,14 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
   );
 
   const deleteAnnotation = useCallback(async (id: string) => {
-    let backup: Annotation[] = [];
-    setAnnotations((prev) => {
-      backup = prev;
-      return prev.filter((a) => a.id !== id);
-    });
+    // Read the pre-delete list synchronously from the ref (see
+    // annotationsRef above) rather than from the setAnnotations updater's
+    // `prev` — that updater isn't guaranteed to run synchronously here, so
+    // capturing `backup` from it could still be the initial empty array by
+    // the time it's read on the next line, which would make a failed
+    // delete "restore" to an empty list instead of the real prior state.
+    const backup = annotationsRef.current;
+    setAnnotations((prev) => prev.filter((a) => a.id !== id));
     setSelectedId(null);
 
     // Same pending-create handling as updateAnnotation: if the create POST
@@ -255,6 +297,17 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `Failed to delete annotation (${res.status})`);
       }
+      // Only drop the render key once the delete is confirmed — see
+      // renderKeys above. If the request fails and the annotation is
+      // restored below, it needs its render key still in place so the
+      // restored rectangle's mount-in animation doesn't replay.
+      setRenderKeys((prev) => {
+        if (!(realId in prev) && !(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[realId];
+        delete next[id];
+        return next;
+      });
     } catch (err) {
       setAnnotations(restoreList);
       setError(err instanceof Error ? err.message : "Failed to delete annotation");
@@ -420,38 +473,50 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
   return (
     <div className={styles.wrapper}>
       <div className={styles.toolbar}>
-        <button
+        <motion.button
           type="button"
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ duration: 0.12 }}
           className={`${styles.modeButton} ${mode === "ignore" ? styles.modeButtonActive : ""}`}
           onClick={() => setMode("ignore")}
         >
           <span className={`${styles.swatch} ${styles.swatchIgnore}`} />
           Ignore (red)
-        </button>
-        <button
+        </motion.button>
+        <motion.button
           type="button"
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ duration: 0.12 }}
           className={`${styles.modeButton} ${mode === "capture" ? styles.modeButtonActive : ""}`}
           onClick={() => setMode("capture")}
         >
           <span className={`${styles.swatch} ${styles.swatchCapture}`} />
           Capture (green)
-        </button>
-        <button
+        </motion.button>
+        <motion.button
           type="button"
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ duration: 0.12 }}
           className={`${styles.modeButton} ${mode === "select" ? styles.modeButtonActive : ""}`}
           onClick={() => setMode("select")}
         >
           Select
-        </button>
+        </motion.button>
         <span className={styles.spacer} />
-        <button
+        <motion.button
           type="button"
+          whileHover={selectedAnnotation ? { scale: 1.03 } : undefined}
+          whileTap={selectedAnnotation ? { scale: 0.97 } : undefined}
+          transition={{ duration: 0.12 }}
           className={styles.deleteButton}
           disabled={!selectedAnnotation}
           onClick={() => selectedAnnotation && deleteAnnotation(selectedAnnotation.id)}
         >
           Delete selected
-        </button>
+        </motion.button>
       </div>
 
       {mode !== "select" && (
@@ -463,14 +528,23 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
         </span>
       )}
 
-      {error && (
-        <div className={styles.errorBanner}>
-          <span>{error}</span>
-          <button type="button" onClick={() => setError(null)}>
-            Dismiss
-          </button>
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            key="error"
+            className={styles.errorBanner}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+          >
+            <span>{error}</span>
+            <button type="button" onClick={() => setError(null)}>
+              Dismiss
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className={styles.imageStage} style={{ maxWidth: page.width }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -501,7 +575,21 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
             const isSaving = a.status === "saving";
 
             return (
-              <g key={a.id} opacity={isSaving ? 0.6 : 1}>
+              // `key` is a stable client-side key (see renderKeys) that
+              // survives the temp-id -> real-id swap on save, so this
+              // mount-in animation plays exactly once per rectangle instead
+              // of replaying when the create POST resolves. `initial`/
+              // `animate` only touch opacity/scale — x/y/width/height stay
+              // on the plain <rect> below, driven 1:1 by drag state, so
+              // this never lags behind the cursor while drawing/moving/
+              // resizing.
+              <motion.g
+                key={renderKeyFor(a.id)}
+                className={styles.annotationGroup}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: isSaving ? 0.6 : 1, scale: 1 }}
+                transition={{ duration: 0.16, ease: "easeOut" }}
+              >
                 <rect
                   x={pct(live.x)}
                   y={pct(live.y)}
@@ -511,6 +599,7 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
                   stroke={isSelected ? SELECTED_STROKE : colors.stroke}
                   strokeWidth={isSelected ? 3 : 2}
                   strokeDasharray={isSaving ? "4 3" : undefined}
+                  className={styles.rectShape}
                   style={{ pointerEvents: mode === "select" ? "auto" : "none", cursor: mode === "select" ? "move" : undefined }}
                   onPointerDown={(e) => handleRectPointerDown(e, a)}
                 />
@@ -537,14 +626,19 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
                       />
                     );
                   })}
-              </g>
+              </motion.g>
             );
           })}
           {drawPreview}
         </svg>
       </div>
 
-      {loading && <span className={styles.loadingNote}>Loading annotations…</span>}
+      {loading && (
+        <span className={styles.loadingNote}>
+          <Spinner size={13} />
+          Loading annotations…
+        </span>
+      )}
     </div>
   );
 }

@@ -1,9 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import type { DrawingDetail } from "@/lib/types";
 import { uploadDrawing } from "@/lib/api";
+import Spinner from "./Spinner";
 import styles from "./ImportDrawingButton.module.css";
+
+const TAP = { scale: 0.96 };
+const HOVER = { scale: 1.03 };
+const BUTTON_TRANSITION = { duration: 0.12 };
 
 interface ImportDrawingButtonProps {
   onImported: (drawing: DrawingDetail) => void;
@@ -104,44 +110,131 @@ export default function ImportDrawingButton({ onImported, existingNames }: Impor
         aria-label="Choose drawing file"
       />
 
-      {!pickedFile ? (
-        <button type="button" onClick={openFilePicker} disabled={uploading}>
-          Import
-        </button>
-      ) : confirmingReplaceName ? (
-        <div className={styles.confirmForm}>
-          <span className={styles.warning}>
-            A drawing named &ldquo;{confirmingReplaceName}&rdquo; already exists and will be
-            replaced (its annotations will be lost). Replace it?
-          </span>
-          <button type="button" onClick={handleConfirmReplace} disabled={uploading}>
-            {uploading ? "Uploading…" : "Replace"}
-          </button>
-          <button type="button" onClick={handleCancelReplace} disabled={uploading}>
-            Cancel
-          </button>
-        </div>
-      ) : (
-        <form className={styles.confirmForm} onSubmit={handleUploadSubmit}>
-          <input
-            className={styles.nameInput}
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Drawing name"
-            aria-label="Drawing name"
-            disabled={uploading}
-          />
-          <button type="submit" disabled={uploading}>
-            {uploading ? "Uploading…" : "Upload"}
-          </button>
-          <button type="button" onClick={resetFileInput} disabled={uploading}>
-            Cancel
-          </button>
-        </form>
-      )}
+      <AnimatePresence mode="wait" initial={false}>
+        {!pickedFile ? (
+          <motion.div
+            key="import"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <motion.button
+              type="button"
+              whileHover={uploading ? undefined : HOVER}
+              whileTap={uploading ? undefined : TAP}
+              transition={BUTTON_TRANSITION}
+              onClick={openFilePicker}
+              disabled={uploading}
+            >
+              Import
+            </motion.button>
+          </motion.div>
+        ) : confirmingReplaceName ? (
+          <motion.div
+            key="confirm"
+            className={styles.confirmForm}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <span className={styles.warning}>
+              A drawing named &ldquo;{confirmingReplaceName}&rdquo; already exists and will be
+              replaced (its annotations will be lost). Replace it?
+            </span>
+            <motion.button
+              type="button"
+              whileHover={uploading ? undefined : HOVER}
+              whileTap={uploading ? undefined : TAP}
+              transition={BUTTON_TRANSITION}
+              className={styles.dangerButton}
+              onClick={handleConfirmReplace}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <span className={styles.buttonWithSpinner}>
+                  <Spinner size={13} />
+                  Uploading…
+                </span>
+              ) : (
+                "Replace"
+              )}
+            </motion.button>
+            <motion.button
+              type="button"
+              whileHover={uploading ? undefined : HOVER}
+              whileTap={uploading ? undefined : TAP}
+              transition={BUTTON_TRANSITION}
+              onClick={handleCancelReplace}
+              disabled={uploading}
+            >
+              Cancel
+            </motion.button>
+          </motion.div>
+        ) : (
+          <motion.form
+            key="name"
+            className={styles.confirmForm}
+            onSubmit={handleUploadSubmit}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <input
+              className={styles.nameInput}
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Drawing name"
+              aria-label="Drawing name"
+              disabled={uploading}
+            />
+            <motion.button
+              type="submit"
+              whileHover={uploading ? undefined : HOVER}
+              whileTap={uploading ? undefined : TAP}
+              transition={BUTTON_TRANSITION}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <span className={styles.buttonWithSpinner}>
+                  <Spinner size={13} />
+                  Uploading…
+                </span>
+              ) : (
+                "Upload"
+              )}
+            </motion.button>
+            <motion.button
+              type="button"
+              whileHover={uploading ? undefined : HOVER}
+              whileTap={uploading ? undefined : TAP}
+              transition={BUTTON_TRANSITION}
+              onClick={resetFileInput}
+              disabled={uploading}
+            >
+              Cancel
+            </motion.button>
+          </motion.form>
+        )}
+      </AnimatePresence>
 
-      {error && <span className={styles.error}>{error}</span>}
+      <AnimatePresence>
+        {error && (
+          <motion.span
+            key="error"
+            className={styles.error}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+          >
+            {error}
+          </motion.span>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

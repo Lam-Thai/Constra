@@ -1,10 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import type { DrawingDetail } from "@/lib/types";
 import { apiUrl } from "@/lib/api";
 import AnnotationCanvas from "./AnnotationCanvas";
+import Spinner from "./Spinner";
 import styles from "./DrawingViewer.module.css";
+
+// Purely cosmetic slide distance (px) for the page-change transition below —
+// unrelated to the annotation overlay's normalized coordinate system, this
+// only animates the page *container*, never a rectangle's position.
+const SLIDE_DISTANCE = 24;
 
 interface DrawingViewerProps {
   drawingId: string;
@@ -16,6 +23,10 @@ export default function DrawingViewer({ drawingId }: DrawingViewerProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [jumpValue, setJumpValue] = useState("1");
   const [syncedPage, setSyncedPage] = useState(1);
+  // Direction of the most recent page change, purely to pick which side the
+  // slide-in animation below enters from — not used for anything
+  // coordinate-related. State (not a ref) because it's read during render.
+  const [direction, setDirection] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +60,14 @@ export default function DrawingViewer({ drawingId }: DrawingViewerProps) {
   }
 
   if (!drawing) {
-    return <div className={styles.status}>Loading drawing…</div>;
+    return (
+      <div className={styles.status}>
+        <span className={styles.statusInner}>
+          <Spinner size={18} />
+          Loading drawing…
+        </span>
+      </div>
+    );
   }
 
   const totalPages = drawing.page_count;
@@ -57,6 +75,7 @@ export default function DrawingViewer({ drawingId }: DrawingViewerProps) {
 
   function goTo(n: number) {
     const clamped = Math.min(Math.max(n, 1), totalPages);
+    setDirection(clamped >= currentPage ? 1 : -1);
     setCurrentPage(clamped);
   }
 
@@ -72,9 +91,16 @@ export default function DrawingViewer({ drawingId }: DrawingViewerProps) {
       <div className={styles.header}>
         <span className={styles.title}>{drawing.name}</span>
         <div className={styles.pageNav}>
-          <button type="button" onClick={() => goTo(currentPage - 1)} disabled={currentPage <= 1}>
+          <motion.button
+            type="button"
+            whileHover={currentPage > 1 ? { scale: 1.03 } : undefined}
+            whileTap={currentPage > 1 ? { scale: 0.97 } : undefined}
+            transition={{ duration: 0.12 }}
+            onClick={() => goTo(currentPage - 1)}
+            disabled={currentPage <= 1}
+          >
             Prev
-          </button>
+          </motion.button>
           <form className={styles.jumpForm} onSubmit={handleJumpSubmit}>
             <input
               className={styles.pageJumpInput}
@@ -84,26 +110,56 @@ export default function DrawingViewer({ drawingId }: DrawingViewerProps) {
               onChange={(e) => setJumpValue(e.target.value)}
               aria-label="Jump to page"
             />
-            <button type="submit">Go</button>
+            <motion.button
+              type="submit"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ duration: 0.12 }}
+            >
+              Go
+            </motion.button>
           </form>
-          <span>
-            of {totalPages}
-          </span>
-          <button
+          <span className={styles.pageCount}>of {totalPages}</span>
+          <motion.button
             type="button"
+            whileHover={currentPage < totalPages ? { scale: 1.03 } : undefined}
+            whileTap={currentPage < totalPages ? { scale: 0.97 } : undefined}
+            transition={{ duration: 0.12 }}
             onClick={() => goTo(currentPage + 1)}
             disabled={currentPage >= totalPages}
           >
             Next
-          </button>
+          </motion.button>
         </div>
       </div>
 
-      {page ? (
-        <AnnotationCanvas key={page.page_number} drawingId={drawingId} page={page} />
-      ) : (
-        <div className={styles.status}>Page {currentPage} not found.</div>
-      )}
+      <div className={styles.pageStage}>
+        <AnimatePresence initial={false}>
+          {page ? (
+            <motion.div
+              key={page.page_number}
+              className={styles.pageSlide}
+              initial={{ opacity: 0, x: SLIDE_DISTANCE * direction }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -SLIDE_DISTANCE * direction }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              <AnnotationCanvas drawingId={drawingId} page={page} />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="missing"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className={`${styles.pageSlide} ${styles.status}`}
+            >
+              Page {currentPage} not found.
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

@@ -1,11 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion, type Variants } from "motion/react";
 import type { DrawingDetail, DrawingSummary } from "@/lib/types";
 import { apiUrl } from "@/lib/api";
 import DrawingViewer from "@/components/DrawingViewer";
 import ImportDrawingButton from "@/components/ImportDrawingButton";
+import ThemeToggle from "@/components/ThemeToggle";
+import Spinner from "@/components/Spinner";
 import styles from "./page.module.css";
+
+const toolbarContainer: Variants = {
+  hidden: {},
+  show: {
+    transition: { staggerChildren: 0.06, delayChildren: 0.02 },
+  },
+};
+
+const toolbarItem: Variants = {
+  hidden: { opacity: 0, y: -4 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.22, ease: "easeOut" } },
+};
 
 export default function Home() {
   const [drawings, setDrawings] = useState<DrawingSummary[] | null>(null);
@@ -61,13 +76,26 @@ export default function Home() {
   }
 
   if (!drawings) {
-    return <div className={styles.status}>Loading…</div>;
+    return (
+      <div className={styles.status}>
+        <div className={styles.statusInner}>
+          <Spinner size={20} />
+          <span>Loading drawings…</span>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className={styles.page}>
-      <div className={styles.toolbar}>
-        <select
+      <motion.div
+        className={styles.toolbar}
+        variants={toolbarContainer}
+        initial="hidden"
+        animate="show"
+      >
+        <motion.select
+          variants={toolbarItem}
           className={styles.drawingSelect}
           value={selectedId ?? ""}
           onChange={(e) => setSelectedId(e.target.value || null)}
@@ -83,20 +111,64 @@ export default function Home() {
               </option>
             ))
           )}
-        </select>
-        <ImportDrawingButton
-          onImported={handleImported}
-          existingNames={drawings.map((d) => d.name)}
-        />
-      </div>
+        </motion.select>
+        <motion.div variants={toolbarItem}>
+          <ImportDrawingButton
+            onImported={handleImported}
+            existingNames={drawings.map((d) => d.name)}
+          />
+        </motion.div>
+        <span className={styles.spacer} />
+        <motion.div variants={toolbarItem}>
+          <ThemeToggle />
+        </motion.div>
+      </motion.div>
 
-      {selectedId ? (
-        <DrawingViewer key={selectedId} drawingId={selectedId} />
-      ) : (
-        <div className={styles.status}>
-          <p>No drawings found. Import a PDF or image to get started.</p>
-        </div>
-      )}
+      <AnimatePresence mode="wait">
+        {selectedId ? (
+          <motion.div
+            key={selectedId}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className={styles.viewerSlot}
+          >
+            <DrawingViewer drawingId={selectedId} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="empty"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className={styles.status}
+          >
+            <div className={styles.emptyState}>
+              <svg
+                width="40"
+                height="40"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                className={styles.emptyIcon}
+              >
+                <path
+                  d="M6 2.5h9l4.5 4.5V21a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+                <path d="M15 2.5V7a1 1 0 0 0 1 1h4.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                <path d="M8.5 13h7M8.5 16.5h4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <p>No drawings found.</p>
+              <p className={styles.emptyHint}>Import a PDF or image to get started.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

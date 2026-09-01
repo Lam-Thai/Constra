@@ -1,14 +1,14 @@
 .wrapper {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
   width: 100%;
 }
 
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -16,27 +16,31 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  font-size: 14px;
-  border-radius: 6px;
-  border: 1px solid #d0d0d0;
-  background: #fff;
-  color: #222;
+  padding: 7px 12px;
+  font-size: var(--font-size-md);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
   cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .modeButton:hover {
-  background: #f2f2f2;
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
 }
 
 .modeButtonActive {
-  border-color: #222;
-  background: #222;
-  color: #fff;
+  border-color: var(--foreground);
+  background: var(--foreground);
+  color: var(--background);
 }
 
 .modeButtonActive:hover {
-  background: #383838;
+  background: var(--foreground);
+  opacity: 0.9;
 }
 
 .swatch {
@@ -59,17 +63,18 @@
 }
 
 .deleteButton {
-  padding: 6px 12px;
-  font-size: 14px;
-  border-radius: 6px;
-  border: 1px solid #e5484d;
-  background: #fff;
-  color: #e5484d;
+  padding: 7px 12px;
+  font-size: var(--font-size-md);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--danger);
+  background: var(--surface);
+  color: var(--danger);
   cursor: pointer;
+  transition: background-color var(--transition-fast);
 }
 
-.deleteButton:hover {
-  background: #fff1f0;
+.deleteButton:hover:not(:disabled) {
+  background: var(--danger-surface);
 }
 
 .deleteButton:disabled {
@@ -78,20 +83,20 @@
 }
 
 .hint {
-  font-size: 12px;
-  color: #666;
+  font-size: var(--font-size-xs);
+  color: var(--muted-foreground);
 }
 
 .errorBanner {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid #e5484d;
-  background: #fff1f0;
-  color: #a91d24;
-  font-size: 13px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--danger);
+  background: var(--danger-surface);
+  color: var(--danger);
+  font-size: var(--font-size-sm);
 }
 
 .errorBanner button {
@@ -100,7 +105,7 @@
   background: none;
   color: inherit;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   text-decoration: underline;
 }
 
@@ -110,7 +115,10 @@
   max-width: 1400px;
   margin: 0 auto;
   line-height: 0;
-  background: #eee;
+  background: var(--surface-secondary);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .pageImage {
@@ -129,7 +137,33 @@
   touch-action: none;
 }
 
+/* Purely decorative: scales/fades a rectangle in on mount (see
+   AnnotationCanvas's motion.g). transform-box: fill-box makes the scale
+   originate from the rect's own center rather than the SVG viewport's
+   origin — it never changes the underlying x/y/width/height attributes
+   that hold the real, normalized coordinates. */
+.annotationGroup {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Color/stroke transitions only — x/y/width/height are never listed here,
+   so this never animates position/size, including while actively
+   drawing/dragging/resizing (those update the plain attributes directly,
+   1:1 with the pointer, every frame). */
+.rectShape {
+  transition: stroke var(--transition-fast), stroke-width var(--transition-fast),
+    filter var(--transition-fast);
+}
+
+.rectShape:hover {
+  filter: brightness(1.2);
+}
+
 .loadingNote {
-  font-size: 13px;
-  color: #666;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--muted-foreground);
 }

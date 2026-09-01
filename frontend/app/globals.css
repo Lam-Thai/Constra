@@ -1,6 +1,97 @@
 :root {
+  color-scheme: light;
+
+  /* Surfaces */
   --background: #ffffff;
-  --foreground: #171717;
+  --surface: #ffffff;
+  --surface-secondary: #f7f7f8;
+  --surface-hover: #f1f1f3;
+
+  /* Text */
+  --foreground: #18181b;
+  --muted-foreground: #6b7280;
+  --subtle-foreground: #a1a1aa;
+
+  /* Borders */
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+
+  /* Accent (restrained blue, Vercel/Linear-ish) */
+  --accent: #3b6cf4;
+  --accent-hover: #2f5ce0;
+  --accent-foreground: #ffffff;
+  --accent-soft: rgba(59, 108, 244, 0.1);
+
+  /* Status */
+  --danger: #e5484d;
+  --danger-hover: #d43d42;
+  --danger-surface: #fff2f1;
+  --success: #30a46c;
+  --success-surface: #effaf4;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(15, 15, 20, 0.05);
+  --shadow-md: 0 4px 16px rgba(15, 15, 20, 0.08);
+  --shadow-lg: 0 16px 40px rgba(15, 15, 20, 0.12);
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Type */
+  --font-sans: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+
+  /* Motion */
+  --transition-fast: 120ms ease;
+  --transition-base: 180ms ease;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #0b0b0d;
+  --surface: #131316;
+  --surface-secondary: #17171b;
+  --surface-hover: #1f1f24;
+
+  --foreground: #f2f2f3;
+  --muted-foreground: #9a9aa2;
+  --subtle-foreground: #6f6f76;
+
+  --border: #26262b;
+  --border-strong: #34343b;
+
+  --accent: #5b8bff;
+  --accent-hover: #7099ff;
+  --accent-foreground: #0b0b0d;
+  --accent-soft: rgba(91, 139, 255, 0.16);
+
+  --danger: #ff6369;
+  --danger-hover: #ff7c81;
+  --danger-surface: #2a1315;
+  --success: #4cc38a;
+  --success-surface: #12271d;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
 }
 
 html {
@@ -19,9 +110,10 @@ body {
   flex-direction: column;
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--transition-base), color var(--transition-base);
 }
 
 * {
@@ -33,4 +125,16 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

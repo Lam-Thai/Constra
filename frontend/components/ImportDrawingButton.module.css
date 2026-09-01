@@ -1,22 +1,24 @@
 .wrapper {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .wrapper button {
-  padding: 6px 12px;
-  font-size: 14px;
-  border-radius: 6px;
-  border: 1px solid #d0d0d0;
-  background: #fff;
-  color: #222;
+  padding: 7px 14px;
+  font-size: var(--font-size-md);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
   cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .wrapper button:hover:not(:disabled) {
-  background: #f2f2f2;
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
 }
 
 .wrapper button:disabled {
@@ -24,33 +26,59 @@
   cursor: default;
 }
 
+.wrapper .dangerButton {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.wrapper .dangerButton:hover:not(:disabled) {
+  background: var(--danger-surface);
+}
+
 .hiddenInput {
   display: none;
+}
+
+.buttonWithSpinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .confirmForm {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
+  overflow: hidden;
 }
 
 .nameInput {
-  padding: 6px 8px;
-  font-size: 14px;
-  border-radius: 6px;
-  border: 1px solid #d0d0d0;
-  background: #fff;
-  color: #222;
+  padding: 7px 10px;
+  font-size: var(--font-size-md);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  transition: border-color var(--transition-fast);
+}
+
+.nameInput:focus {
+  border-color: var(--accent);
 }
 
 .error {
-  color: #a91d24;
-  font-size: 13px;
+  display: inline-block;
+  color: var(--danger);
+  font-size: var(--font-size-sm);
 }
 
 .warning {
   color: #a15c00;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   max-width: 320px;
+}
+
+[data-theme="dark"] .warning {
+  color: #e0a233;
 }

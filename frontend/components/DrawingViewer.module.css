@@ -1,13 +1,13 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
   width: 100%;
   max-width: 1440px;
   margin: 0 auto;
-  padding: 24px;
-  color: #171717;
-  background: #ffffff;
+  padding: var(--space-6);
+  color: var(--foreground);
+  background: var(--background);
 }
 
 .header {
@@ -15,33 +15,41 @@
   align-items: baseline;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .title {
-  font-size: 20px;
+  font-size: var(--font-size-xl);
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .pageNav {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--muted-foreground);
+}
+
+.pageCount {
+  white-space: nowrap;
 }
 
 .pageNav button {
   padding: 6px 12px;
-  font-size: 14px;
-  border-radius: 6px;
-  border: 1px solid #d0d0d0;
-  background: #fff;
-  color: #222;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
   cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .pageNav button:hover:not(:disabled) {
-  background: #f2f2f2;
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
 }
 
 .pageNav button:disabled {
@@ -57,36 +65,67 @@
 
 .jumpForm button {
   padding: 6px 10px;
-  font-size: 14px;
-  border-radius: 6px;
-  border: 1px solid #d0d0d0;
-  background: #fff;
-  color: #222;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
   cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .jumpForm button:hover {
-  background: #f2f2f2;
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
 }
 
 .pageJumpInput {
   width: 48px;
   padding: 6px 8px;
-  font-size: 14px;
-  border-radius: 6px;
-  border: 1px solid #d0d0d0;
-  background: #fff;
-  color: #222;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
   text-align: center;
+  transition: border-color var(--transition-fast);
+}
+
+.pageJumpInput:focus {
+  border-color: var(--accent);
+}
+
+/* AnimatePresence runs in default "sync" mode (see DrawingViewer.tsx): the
+   outgoing and incoming page briefly coexist in the DOM so the new page can
+   start loading immediately instead of waiting for the exit animation.
+   Grid-stacking both in the same cell (rather than plain `position: relative`
+   in-flow, or `position: absolute` which would collapse the container's
+   height since neither child is in flow) keeps that overlap a purely visual
+   cross-fade/slide, auto-sized to the taller of the two pages, instead of
+   stacking them in document flow and jumping .pageStage's height for the
+   ~180ms overlap. */
+.pageStage {
+  display: grid;
+}
+
+.pageSlide {
+  grid-area: 1 / 1;
+  min-width: 0;
 }
 
 .status {
-  padding: 40px;
+  padding: var(--space-6);
   text-align: center;
-  color: #666;
-  font-size: 14px;
+  color: var(--muted-foreground);
+  font-size: var(--font-size-md);
+}
+
+.statusInner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .statusError {
-  color: #a91d24;
+  color: var(--danger);
 }
