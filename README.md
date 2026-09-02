@@ -9,14 +9,16 @@ Engineer role.
 Construction drawing sets are long, multipage PDFs full of dense detail.
 Constra lets you:
 
-1. **Open a drawing and flip through its pages**, like a document viewer.
-2. **Draw a red box** around anything you want to mark as "ignore."
-3. **Draw a green box** around any text you want to "capture."
-4. **Everything you draw is saved automatically** — close the app, come
+1. **Upload your own drawing** — a PDF, or a PNG/JPG image — right from
+   the browser. No technical setup, just pick a file.
+2. **Open a drawing and flip through its pages**, like a document viewer.
+3. **Draw a red box** around anything you want to mark as "ignore."
+4. **Draw a green box** around any text you want to "capture."
+5. **Everything you draw is saved automatically** — close the app, come
    back later, and your boxes are exactly where you left them.
-5. *(Optional bonus)* **Automatically read the text inside each green
-   box** and save it, using software that runs entirely on your own
-   computer — nothing is sent to an outside AI service to do this.
+6. *(Planned, not built yet)* **Automatically read the text inside each
+   green box** and save it, using software that would run entirely on
+   your own computer — nothing sent to an outside AI service to do this.
 
 That's the whole product. It's intentionally small and focused: it does
 one job (view + mark up + save) rather than trying to be a full CAD or
@@ -26,11 +28,13 @@ document-management tool.
 
 | Feature | Status |
 |---|---|
-| Import and view a multipage construction drawing | ✅ Done |
+| Upload your own drawing (PDF, PNG, or JPG) from the browser | ✅ Done |
+| View a multipage construction drawing | ✅ Done |
 | Page navigation (next/prev, jump to page) | ✅ Done |
 | Draw red ("ignore") and green ("capture") rectangles | ✅ Done |
 | Select, resize, and delete existing rectangles | ✅ Done |
 | Annotations persist after the app restarts | ✅ Done |
+| Light / dark theme toggle | ✅ Done |
 | Local OCR on green rectangles (bonus) | ⏳ Not yet started |
 | Demo video (bonus) | ⏳ Not yet started |
 
