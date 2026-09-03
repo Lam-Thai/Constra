@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { DrawingDetail } from "@/lib/types";
+import type { Annotation, DrawingDetail } from "@/lib/types";
 import { apiUrl } from "@/lib/api";
-import AnnotationCanvas from "./AnnotationCanvas";
+import AnnotationCanvas, { type FocusRequest } from "./AnnotationCanvas";
 import Spinner from "./Spinner";
 import styles from "./DrawingViewer.module.css";
 
@@ -15,14 +15,33 @@ const SLIDE_DISTANCE = 24;
 
 interface DrawingViewerProps {
   drawingId: string;
+  // Page navigation is controlled from the parent (TakeoffWorkspace) so
+  // sibling panels — the captured-text list and the estimate line items —
+  // can jump the viewer to a specific page (click-to-source) without owning
+  // a duplicate copy of "which page is showing" themselves.
+  currentPage: number;
+  onPageChange: (page: number) => void;
+  onDrawingLoaded?: (drawing: DrawingDetail) => void;
+  onAnnotationsChange?: (annotations: Annotation[]) => void;
+  onSelectionChange?: (id: string | null) => void;
+  focusRequest?: FocusRequest | null;
+  reloadToken?: number;
 }
 
-export default function DrawingViewer({ drawingId }: DrawingViewerProps) {
+export default function DrawingViewer({
+  drawingId,
+  currentPage,
+  onPageChange,
+  onDrawingLoaded,
+  onAnnotationsChange,
+  onSelectionChange,
+  focusRequest,
+  reloadToken,
+}: DrawingViewerProps) {
   const [drawing, setDrawing] = useState<DrawingDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [jumpValue, setJumpValue] = useState("1");
-  const [syncedPage, setSyncedPage] = useState(1);
+  const [jumpValue, setJumpValue] = useState(String(currentPage));
+  const [syncedPage, setSyncedPage] = useState(currentPage);
   // Direction of the most recent page change, purely to pick which side the
   // slide-in animation below enters from — not used for anything
   // coordinate-related. State (not a ref) because it's read during render.
@@ -36,7 +55,10 @@ export default function DrawingViewer({ drawingId }: DrawingViewerProps) {
         return res.json() as Promise<DrawingDetail>;
       })
       .then((data) => {
-        if (!cancelled) setDrawing(data);
+        if (!cancelled) {
+          setDrawing(data);
+          onDrawingLoaded?.(data);
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load drawing");
@@ -44,6 +66,7 @@ export default function DrawingViewer({ drawingId }: DrawingViewerProps) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawingId]);
 
   // Keep the jump-to-page input in sync when navigation happens elsewhere
@@ -76,7 +99,7 @@ export default function DrawingViewer({ drawingId }: DrawingViewerProps) {
   function goTo(n: number) {
     const clamped = Math.min(Math.max(n, 1), totalPages);
     setDirection(clamped >= currentPage ? 1 : -1);
-    setCurrentPage(clamped);
+    onPageChange(clamped);
   }
 
   function handleJumpSubmit(e: React.FormEvent) {
@@ -144,7 +167,14 @@ export default function DrawingViewer({ drawingId }: DrawingViewerProps) {
               exit={{ opacity: 0, x: -SLIDE_DISTANCE * direction }}
               transition={{ duration: 0.18, ease: "easeOut" }}
             >
-              <AnnotationCanvas drawingId={drawingId} page={page} />
+              <AnnotationCanvas
+                drawingId={drawingId}
+                page={page}
+                onAnnotationsChange={onAnnotationsChange}
+                onSelectionChange={onSelectionChange}
+                focusRequest={focusRequest}
+                reloadToken={reloadToken}
+              />
             </motion.div>
           ) : (
             <motion.div

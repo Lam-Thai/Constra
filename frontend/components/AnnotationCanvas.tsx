@@ -46,23 +46,59 @@ function toNormalizedPoint(e: { clientX: number; clientY: number }, svgEl: SVGSV
   };
 }
 
+// Request from an outside panel (captured-text list, estimate line item) to
+// select and briefly flash one annotation's rectangle — e.g. "jump to this
+// line item's source box". `nonce` must be bumped on every request, even to
+// re-focus the same id, so the effect below fires again.
+export interface FocusRequest {
+  id: string;
+  nonce: number;
+}
+
 interface AnnotationCanvasProps {
   drawingId: string;
   page: PageInfo;
+  // Bubbles the live annotations array up on every change (load, optimistic
+  // create/update/delete, server reconciliation) so a sibling panel (the
+  // captured-text list) can render the same data without re-implementing
+  // the fetch/optimistic-update logic that already lives here.
+  onAnnotationsChange?: (annotations: Annotation[]) => void;
+  // Bubbles the current selection (select-mode click on a rect, or a
+  // programmatic focus via `focusRequest`) so a sibling panel can highlight
+  // the matching entry.
+  onSelectionChange?: (id: string | null) => void;
+  // See FocusRequest above.
+  focusRequest?: FocusRequest | null;
+  // Bumping this re-fetches this page's annotations from the server —
+  // used after an OCR run (which writes ocr_* fields server-side that this
+  // component has no other way of learning about) touches this page.
+  reloadToken?: number;
 }
 
-export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasProps) {
+export default function AnnotationCanvas({
+  drawingId,
+  page,
+  onAnnotationsChange,
+  onSelectionChange,
+  focusRequest,
+  reloadToken,
+}: AnnotationCanvasProps) {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<Mode>("select");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Non-null while a flash animation is playing on one rectangle (see
+  // FocusRequest) — purely a visual pulse, cleared automatically once the
+  // animation finishes.
+  const [flashId, setFlashId] = useState<string | null>(null);
 
   const [drawState, setDrawState] = useState<DrawState | null>(null);
   const [moveState, setMoveState] = useState<MoveState | null>(null);
   const [resizeState, setResizeState] = useState<ResizeState | null>(null);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   // Mirrors `annotations` for synchronous reads inside callbacks that can't
   // depend on `annotations` directly (see deleteAnnotation below, which is
@@ -75,6 +111,18 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
   useEffect(() => {
     annotationsRef.current = annotations;
   }, [annotations]);
+
+  // Bubble the live list up to a sibling panel on every change. Callers
+  // (TakeoffWorkspace) pass a bare `useState` setter here, which React
+  // guarantees is stable across renders, so listing it as a dependency
+  // doesn't cause extra reruns in practice.
+  useEffect(() => {
+    onAnnotationsChange?.(annotations);
+  }, [annotations, onAnnotationsChange]);
+
+  useEffect(() => {
+    onSelectionChange?.(selectedId);
+  }, [selectedId, onSelectionChange]);
 
   // Tracks in-flight create POSTs, keyed by the temp id of the optimistic
   // annotation they belong to. A delete/move/resize requested on an
@@ -130,6 +178,61 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
     };
   }, [drawingId, page.page_number]);
 
+  // Re-fetch this page's annotations when `reloadToken` is bumped by a
+  // parent that just ran OCR (server-side ocr_* writes this component has
+  // no other way of learning about). Skipped on the very first render via
+  // the ref below — the mount effect above already covers the initial
+  // load, and reloadToken typically starts at 0/undefined anyway.
+  const didMountReloadRef = useRef(false);
+  useEffect(() => {
+    if (!didMountReloadRef.current) {
+      didMountReloadRef.current = true;
+      return;
+    }
+    if (reloadToken === undefined) return;
+    let cancelled = false;
+    fetch(apiUrl(`/api/drawings/${drawingId}/pages/${page.page_number}/annotations/`))
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load annotations (${res.status})`);
+        return res.json() as Promise<Annotation[]>;
+      })
+      .then((data) => {
+        if (!cancelled) setAnnotations(data);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to reload annotations");
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloadToken]);
+
+  // Handle an external focus request (see FocusRequest): select the target
+  // rectangle, switch to select mode so its handles/highlight render, and
+  // trigger a brief flash animation. Waits for the initial load to finish
+  // and for the target id to actually exist among this page's annotations
+  // (it may take a render or two after a reload/remount) before acting, and
+  // guards against re-processing the same request via `nonce`.
+  const handledFocusNonceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!focusRequest || loading) return;
+    if (handledFocusNonceRef.current === focusRequest.nonce) return;
+    const target = annotations.find((a) => a.id === focusRequest.id);
+    if (!target) return;
+    handledFocusNonceRef.current = focusRequest.nonce;
+    // Intentional: this effect exists specifically to synchronize local
+    // interaction state (mode/selection/flash) with an external signal — a
+    // sibling panel asking to jump to this annotation — which by
+    // definition can't be expressed as a render-time derivation of props;
+    // it has to wait for `loading`/`annotations` to be ready first.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMode("select");
+    setSelectedId(target.id);
+    setFlashId(target.id);
+    wrapperRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusRequest, loading, annotations]);
+
   const createAnnotation = useCallback(
     (type: AnnotationType, rect: Rect) => {
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -140,6 +243,10 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
         type,
         ...rect,
         ocr_text: null,
+        ocr_status: null,
+        ocr_confidence: null,
+        ocr_ran_at: null,
+        ocr_engine: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         status: "saving",
@@ -471,7 +578,7 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
   const selectedAnnotation = annotations.find((a) => a.id === selectedId) ?? null;
 
   return (
-    <div className={styles.wrapper}>
+    <div className={styles.wrapper} ref={wrapperRef}>
       <div className={styles.toolbar}>
         <motion.button
           type="button"
@@ -626,6 +733,22 @@ export default function AnnotationCanvas({ drawingId, page }: AnnotationCanvasPr
                       />
                     );
                   })}
+                {flashId === a.id && (
+                  <motion.rect
+                    x={pct(live.x)}
+                    y={pct(live.y)}
+                    width={pct(live.width)}
+                    height={pct(live.height)}
+                    fill="none"
+                    stroke={SELECTED_STROKE}
+                    strokeWidth={5}
+                    pointerEvents="none"
+                    initial={{ opacity: 1 }}
+                    animate={{ opacity: [1, 0.15, 1, 0.15, 1, 0] }}
+                    transition={{ duration: 1.4, ease: "easeInOut" }}
+                    onAnimationComplete={() => setFlashId((cur) => (cur === a.id ? null : cur))}
+                  />
+                )}
               </motion.g>
             );
           })}

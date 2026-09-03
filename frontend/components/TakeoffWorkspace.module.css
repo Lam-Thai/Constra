@@ -1,0 +1,85 @@
+.wrapper {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  align-items: start;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-6) var(--space-6);
+}
+
+@media (max-width: 1100px) {
+  .wrapper {
+    grid-template-columns: 1fr;
+  }
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.sidebar {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  max-height: calc(100vh - var(--space-6));
+  overflow-y: auto;
+}
+
+@media (max-width: 1100px) {
+  .sidebar {
+    position: static;
+    max-height: none;
+  }
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.tabButton {
+  padding: 6px 10px;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: none;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.tabButton:hover {
+  background: var(--surface-hover);
+  color: var(--foreground);
+}
+
+.tabButtonActive {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.tabButtonActive:hover {
+  background: var(--foreground);
+  opacity: 0.9;
+}
+
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}

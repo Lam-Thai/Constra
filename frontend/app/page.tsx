@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion, type Variants } from "motion/react";
 import type { DrawingDetail, DrawingSummary } from "@/lib/types";
 import { apiUrl } from "@/lib/api";
-import DrawingViewer from "@/components/DrawingViewer";
+import TakeoffWorkspace from "@/components/TakeoffWorkspace";
 import ImportDrawingButton from "@/components/ImportDrawingButton";
 import ThemeToggle from "@/components/ThemeToggle";
 import Spinner from "@/components/Spinner";
@@ -134,7 +134,7 @@ export default function Home() {
             transition={{ duration: 0.15 }}
             className={styles.viewerSlot}
           >
-            <DrawingViewer drawingId={selectedId} />
+            <TakeoffWorkspace drawingId={selectedId} />
           </motion.div>
         ) : (
           <motion.div

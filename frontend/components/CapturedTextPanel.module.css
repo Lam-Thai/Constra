@@ -1,0 +1,137 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hint {
+  font-size: var(--font-size-xs);
+  color: var(--muted-foreground);
+}
+
+.empty {
+  font-size: var(--font-size-sm);
+  color: var(--muted-foreground);
+  padding: var(--space-3);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.rowSelected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.rowHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.rowTitle {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.badgeNone {
+  background: var(--surface-secondary);
+  color: var(--muted-foreground);
+}
+
+.badgePending {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.badgeDone {
+  background: var(--success-surface);
+  color: var(--success);
+}
+
+.badgeEmpty {
+  background: var(--surface-secondary);
+  color: var(--muted-foreground);
+}
+
+.badgeFailed {
+  background: var(--danger-surface);
+  color: var(--danger);
+}
+
+.textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 6px 8px;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-secondary);
+  color: var(--foreground);
+  transition: border-color var(--transition-fast);
+}
+
+.textarea:focus {
+  border-color: var(--accent);
+}
+
+.rowFooter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 14px;
+  font-size: 11px;
+}
+
+.savingNote {
+  color: var(--muted-foreground);
+}
+
+.saveError {
+  color: var(--danger);
+}
+
+.engineNote {
+  margin-left: auto;
+  color: var(--subtle-foreground);
+  font-family: var(--font-mono);
+}

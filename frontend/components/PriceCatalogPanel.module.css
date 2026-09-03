@@ -1,0 +1,205 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.importRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.uploadButton {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.uploadButton:hover {
+  background: var(--surface-hover);
+}
+
+.buttonContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.templateLink {
+  font-size: var(--font-size-sm);
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--danger);
+  background: var(--danger-surface);
+  color: var(--danger);
+  font-size: var(--font-size-sm);
+}
+
+.errorBanner button {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+}
+
+.resultBanner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--success);
+  background: var(--success-surface);
+  color: var(--success);
+  font-size: var(--font-size-sm);
+}
+
+.resultHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.resultHeader button {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+}
+
+.errorList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--danger);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.empty {
+  font-size: var(--font-size-sm);
+  color: var(--muted-foreground);
+  padding: var(--space-3);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+
+.loadError {
+  color: var(--danger);
+  font-size: var(--font-size-sm);
+}
+
+.loadingNote {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--muted-foreground);
+}
+
+.tableWrap {
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.table {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  font-size: var(--font-size-xs);
+  color: var(--muted-foreground);
+  font-weight: 500;
+  padding: 6px 8px;
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.codeCell {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.rateCell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rateInput {
+  width: 76px;
+  padding: 4px 6px;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.rateInput:focus {
+  border-color: var(--accent);
+}
+
+.rateError {
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.sourceBadge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--surface-secondary);
+  color: var(--muted-foreground);
+  font-size: 11px;
+}

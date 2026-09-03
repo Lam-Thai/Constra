@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Estimate report — {{ drawing.name }}</title>
+<style>
+  @page { size: Letter; margin: 0.6in; }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+    color: #1a1a1a;
+    font-size: 12px;
+    line-height: 1.4;
+    margin: 0;
+    padding: 24px;
+  }
+
+  header {
+    border-bottom: 2px solid #1a1a1a;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+
+  header h1 {
+    font-size: 20px;
+    margin: 0 0 4px 0;
+  }
+
+  header .meta {
+    color: #444;
+    font-size: 11px;
+  }
+
+  .disclaimer {
+    background: #fff4e5;
+    border: 2px solid #cc7a00;
+    color: #663c00;
+    font-weight: bold;
+    padding: 10px 14px;
+    margin: 12px 0 20px 0;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  h2 {
+    font-size: 15px;
+    margin: 24px 0 8px 0;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 4px;
+  }
+
+  h3 {
+    font-size: 13px;
+    margin: 16px 0 6px 0;
+    color: #333;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 5px 7px;
+    border-bottom: 1px solid #ddd;
+    vertical-align: top;
+  }
+
+  th {
+    background: #f2f2f2;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  td.num, th.num { text-align: right; white-space: nowrap; }
+
+  tr.needs-review { background: #fff8e1; }
+  tr.unmatched { background: #fdecea; }
+
+  .flag {
+    display: inline-block;
+    font-size: 9.5px;
+    font-weight: bold;
+    padding: 1px 6px;
+    border-radius: 8px;
+    margin-left: 4px;
+  }
+  .flag.unmatched { background: #f8d7da; color: #7a1f27; }
+  .flag.review { background: #fde8b8; color: #6b4e00; }
+
+  .totals {
+    width: 320px;
+    margin-left: auto;
+    margin-top: 12px;
+  }
+  .totals td { border-bottom: none; padding: 3px 7px; }
+  .totals tr.grand-total td {
+    font-weight: bold;
+    font-size: 14px;
+    border-top: 2px solid #1a1a1a;
+    padding-top: 6px;
+  }
+
+  .summary-box {
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    white-space: pre-wrap;
+  }
+
+  footer {
+    margin-top: 28px;
+    padding-top: 10px;
+    border-top: 1px solid #ccc;
+    font-size: 10px;
+    color: #777;
+  }
+
+  @media print {
+    body { padding: 0; }
+    .no-print { display: none; }
+    tr { page-break-inside: avoid; }
+  }
+
+  .print-button {
+    margin-bottom: 16px;
+    padding: 8px 16px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<button class="print-button no-print" onclick="window.print()">Print / Save as PDF</button>
+
+<header>
+  <h1>Takeoff Estimate — {{ drawing.name }}</h1>
+  <div class="meta">
+    Run date: {{ run.created_at|date:"Y-m-d H:i" }} UTC
+    &middot; Model: {{ run.model_name|default:"n/a" }}
+    &middot; Status: {{ run.status }}
+    &middot; Report generated: {{ generated_at|date:"Y-m-d H:i" }} UTC
+  </div>
+</header>
+
+<div class="disclaimer">
+  ⚠ AI-generated draft — verify before bidding. Quantities and matched unit
+  costs were produced automatically from OCR'd drawing text and a
+  placeholder rate catalog; a qualified estimator must review every line,
+  especially any flagged "unmatched" or "needs review" below, before this
+  is used in a bid.
+</div>
+
+{% if run.summary %}
+<h2>Summary</h2>
+<div class="summary-box">{{ run.summary }}</div>
+{% endif %}
+
+<h2>Totals ({{ run.currency }})</h2>
+<table class="totals">
+  <tr><td>Subtotal</td><td class="num">{{ run.subtotal }}</td></tr>
+  <tr><td>Waste ({{ run.waste_pct }}%)</td><td class="num">{{ run.waste_amount }}</td></tr>
+  <tr><td>Markup ({{ run.markup_pct }}%)</td><td class="num">{{ run.markup_amount }}</td></tr>
+  <tr class="grand-total"><td>Total</td><td class="num">{{ run.total }}</td></tr>
+</table>
+<p class="meta">
+  {{ unmatched_count }} unmatched line item{{ unmatched_count|pluralize }},
+  {{ needs_review_count }} flagged for review, out of
+  {{ run.line_items.count }} total.
+</p>
+
+<h2>Per-page breakdown</h2>
+{% for page_number, items in pages %}
+  <h3>Page {{ page_number }}</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th>Description</th>
+        <th class="num">Qty</th>
+        <th>Unit</th>
+        <th class="num">Unit cost</th>
+        <th class="num">Line total</th>
+        <th class="num">Read conf.</th>
+        <th class="num">Match conf.</th>
+        <th>Match</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr class="{% if item.match_method == 'unmatched' or item.match_method == 'weak' %}unmatched{% elif item.needs_review %}needs-review{% endif %}">
+        <td>{{ item.category }}</td>
+        <td>
+          {{ item.description }}
+          {% if item.match_method == 'unmatched' %}<span class="flag unmatched">NO PRICE MATCH</span>{% endif %}
+          {% if item.match_method == 'weak' %}<span class="flag unmatched">SUGGESTED &mdash; NOT PRICED</span>{% endif %}
+          {% if item.needs_review %}<span class="flag review">REVIEW</span>{% endif %}
+        </td>
+        <td class="num">{{ item.quantity }}</td>
+        <td>{{ item.unit }}</td>
+        <td class="num">{{ item.unit_cost }}</td>
+        <td class="num">{{ item.line_total }}</td>
+        <td class="num">{{ item.confidence }}</td>
+        <td class="num">{{ item.match_confidence }}</td>
+        <td>{{ item.match_method }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% empty %}
+  <p>No line items in this run.</p>
+{% endfor %}
+
+<footer>
+  Constra — AI-assisted takeoff. Estimate ID: {{ run.id }} &middot; Drawing ID: {{ drawing.id }}.
+  This report is a draft aid, not a certified estimate.
+</footer>
+
+</body>
+</html>

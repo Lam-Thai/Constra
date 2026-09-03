@@ -1,4 +1,11 @@
-import type { DrawingDetail } from "./types";
+import type {
+  Annotation,
+  DrawingDetail,
+  EstimateRun,
+  OcrRunResult,
+  UnitPrice,
+  UnitPriceImportResult,
+} from "./types";
 
 // Base URL of the separate Django backend (see backend/), not a Next.js API
 // route — the frontend has no server-side data layer of its own. Read from
@@ -60,4 +67,111 @@ async function extractErrorMessage(res: Response): Promise<string> {
     if (messages.length > 0) return messages.join(" ");
   }
   return fallback;
+}
+
+// Thrown by the helpers below instead of a plain Error so callers that need
+// to branch on the HTTP status (e.g. the estimate endpoint's 503/400/502
+// meaning three different things to a user) don't have to re-parse a
+// message string to recover it.
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(apiUrl(path), init);
+  if (!res.ok) {
+    throw new ApiError(res.status, await extractErrorMessage(res));
+  }
+  // Some endpoints (e.g. DELETE) have no body; guard against a JSON parse
+  // failure on an empty 204 response.
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
+// --- OCR ---
+
+export async function runOcr(
+  drawingId: string,
+  options: { page?: number | null; force?: boolean } = {}
+): Promise<OcrRunResult> {
+  return requestJson<OcrRunResult>(`/api/drawings/${drawingId}/ocr/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ page: options.page ?? null, force: options.force ?? false }),
+  });
+}
+
+export async function patchAnnotationOcrText(id: string, ocrText: string): Promise<Annotation> {
+  return requestJson<Annotation>(`/api/annotations/${id}/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ocr_text: ocrText }),
+  });
+}
+
+// --- Estimate ---
+
+export async function generateEstimate(
+  drawingId: string,
+  wastePct: number,
+  markupPct: number
+): Promise<EstimateRun> {
+  return requestJson<EstimateRun>(`/api/drawings/${drawingId}/estimate/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ waste_pct: wastePct, markup_pct: markupPct }),
+  });
+}
+
+// List response omits `line_items` (see API-CONTRACT.md) — use
+// `getEstimate` for the full detail.
+export async function listEstimates(drawingId: string): Promise<EstimateRun[]> {
+  return requestJson<EstimateRun[]>(`/api/drawings/${drawingId}/estimates/`);
+}
+
+export async function getEstimate(id: string): Promise<EstimateRun> {
+  return requestJson<EstimateRun>(`/api/estimates/${id}/`);
+}
+
+export function estimateExportCsvUrl(id: string): string {
+  return apiUrl(`/api/estimates/${id}/export.csv`);
+}
+
+export function estimateReportUrl(id: string): string {
+  return apiUrl(`/api/estimates/${id}/report/`);
+}
+
+// --- Unit price catalog ---
+
+export async function listUnitPrices(): Promise<UnitPrice[]> {
+  return requestJson<UnitPrice[]>(`/api/unit-prices/`);
+}
+
+export async function patchUnitPrice(
+  id: string,
+  patch: Partial<Pick<UnitPrice, "code" | "description" | "category" | "unit" | "unit_cost" | "keywords">>
+): Promise<UnitPrice> {
+  return requestJson<UnitPrice>(`/api/unit-prices/${id}/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function importUnitPriceCsv(file: File): Promise<UnitPriceImportResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return requestJson<UnitPriceImportResult>(`/api/unit-prices/import/`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function unitPriceTemplateCsvUrl(): string {
+  return apiUrl(`/api/unit-prices/template.csv`);
 }

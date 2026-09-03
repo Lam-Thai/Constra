@@ -46,10 +46,26 @@ frontend at the backend).
   command. Deliberately not PyMuPDF (AGPL license).
 - **CORS**: `django-cors-headers`, explicit allowed origins for the frontend
   dev server — never wildcarded.
-- **OCR (bonus)**: local OCR via `pytesseract` (Python, wraps the Tesseract
-  engine) run only on green-rectangle crops, never the whole page. Requires
-  the Tesseract binary installed on the machine separately from the pip
-  package — flag this to the PM before starting that work if it's missing.
+- **OCR (bonus)**: local OCR via `rapidocr` (ONNX-based, Apache-2.0) run only
+  on green-rectangle crops, never the whole page. Any `ignore` rectangle
+  overlapping a crop is masked to white *before* OCR — that is what makes the
+  red boxes load-bearing rather than decorative. Deliberately **not**
+  `pytesseract`: that needs the Tesseract binary installed separately from the
+  pip package (it is not on this machine), and it is weaker on dense CAD text.
+  `rapidocr` is pip-only with models in the wheel, so `pip install -r
+  requirements.txt` stays the one setup step. Note `rapidocr-onnxruntime` is
+  the abandoned 1.x line — the current package is `rapidocr` (3.x), whose API
+  returns a `RapidOCROutput` object, not a list of tuples. Its orientation
+  classifier only corrects 180° flips, so crops are OCR'd at 0° and 90° and
+  the higher-scoring result wins — construction sheets are full of rotated
+  dimension strings and vertical title-block text.
+- **LLM (AI estimate)**: Google Gemini via `google-genai` (2.x) with structured
+  JSON output, model `gemini-3.5-flash-lite`. It receives **OCR text only —
+  never image bytes**, so no drawing imagery leaves the machine. `GEMINI_API_KEY`
+  lives in `backend/.env` (gitignored); when it is absent the estimate endpoint
+  returns 503 rather than failing hard, and every other feature still works.
+  Deliberately not `google-generativeai` — that package hit permanent EOL on
+  2025-11-30. Do not reach for `gemini-2.0-*` model ids; they are shut down.
 
 ## Data model (starting point — refine during planning)
 

@@ -44,6 +44,13 @@ def _page_file_path(drawing_id, page_number: int) -> Path:
     return _page_out_dir(drawing_id) / f"page-{page_number:03d}.png"
 
 
+def page_png_path(drawing_id, page_number: int) -> Path:
+    """Public accessor for the on-disk page PNG path — used by ocr.py so
+    every consumer of the `MEDIA_ROOT/pages/<drawing_id>/page-XXX.png`
+    layout goes through this one place instead of recomputing it."""
+    return _page_file_path(drawing_id, page_number)
+
+
 def _write_page_png(drawing_id, page_number: int, pil_image: Image.Image) -> tuple[str, int, int, Path]:
     """Save a single page's PIL image as a PNG, return (image_url, width, height, file_path)."""
     width, height = pil_image.size
