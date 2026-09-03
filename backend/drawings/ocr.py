@@ -40,9 +40,8 @@ import importlib.metadata
 import logging
 import threading
 from dataclasses import dataclass
-from pathlib import Path
 
-from django.conf import settings
+from django.core.files.storage import default_storage
 from PIL import Image, ImageDraw
 
 logger = logging.getLogger(__name__)
@@ -84,14 +83,16 @@ class OcrResult:
     engine: str  # e.g. "rapidocr@1.2.3" — provenance, persisted on the annotation
 
 
-def _page_png_path(annotation) -> Path:
-    """Resolve the on-disk PNG for the page this annotation belongs to,
-    reusing services.py's on-disk layout convention
-    (MEDIA_ROOT/pages/<drawing_id>/page-XXX.png) rather than recomputing it
-    independently."""
-    from .services import page_png_path  # local import avoids a cycle at module load time
+def _page_png_storage_name(annotation) -> str:
+    """Resolve the storage key for the page PNG this annotation belongs to,
+    reusing services.py's key layout convention
+    (pages/<drawing_id>/page-XXX.png) rather than recomputing it
+    independently. Read via `default_storage` (not a raw filesystem path)
+    so this works unmodified against local disk in dev/tests and against
+    the S3-compatible bucket in prod — see config.settings' USE_S3_MEDIA."""
+    from .services import page_png_storage_name  # local import avoids a cycle at module load time
 
-    return page_png_path(annotation.drawing_id, annotation.page_number)
+    return page_png_storage_name(annotation.drawing_id, annotation.page_number)
 
 
 def _denormalize_rect(rect_owner, width: int, height: int) -> tuple[int, int, int, int]:
@@ -119,7 +120,8 @@ def build_masked_crop(annotation) -> Image.Image:
     falls partly inside a green capture rectangle.
 
     Steps:
-      1. Load the page PNG from MEDIA_ROOT (via services.py's path helper).
+      1. Load the page PNG via default_storage (local disk or S3-compatible
+         bucket, whichever is active — see services.py's key helper).
       2. Denormalize `annotation`'s rect to pixels, clamped to image bounds.
       3. For every `ignore` annotation on the same page, denormalize its
          rect too, intersect it with the capture rect, and paint the
@@ -134,11 +136,17 @@ def build_masked_crop(annotation) -> Image.Image:
     # doesn't import ocr.py, but this keeps the dependency direction obvious.
     from .models import Annotation
 
-    png_path = _page_png_path(annotation)
+    storage_name = _page_png_storage_name(annotation)
     try:
-        page_image = Image.open(png_path)
-        page_image.load()
-    except (FileNotFoundError, OSError) as err:
+        with default_storage.open(storage_name, "rb") as source_file:
+            page_image = Image.open(source_file)
+            page_image.load()
+    except Exception as err:
+        # Broad on purpose: FileSystemStorage raises FileNotFoundError/OSError
+        # for a missing local file, while the S3 backend raises its own
+        # client-library exceptions (e.g. botocore's ClientError) for a
+        # missing/unreachable object — both must surface as the same OcrError
+        # so callers only ever need to catch one thing.
         raise OcrError(f"Could not load page image for masking: {err}") from err
 
     if page_image.mode != "RGB":

@@ -1,0 +1,11 @@
+# Normalize line endings on checkin so scripts that must run on Render's
+# Linux container (start.sh in particular) can never accidentally get
+# committed with CRLF endings by a contributor whose local git config
+# (core.autocrlf) differs from this machine's. A CRLF shebang line fails on
+# Linux with "/usr/bin/env: 'bash\r': No such file or directory" — a
+# deploy-breaking failure that's invisible in any local dev/test loop.
+* text=auto eol=lf
+
+# Explicit belt-and-suspenders for anything invoked directly as a shell
+# script, regardless of the general rule above.
+*.sh text eol=lf

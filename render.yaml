@@ -1,0 +1,98 @@
+# Render Blueprint (Infrastructure-as-Code) for Constra's Django backend.
+#
+# Deploys the API in backend/ as a Render "Web Service" (persistent process,
+# not a serverless function) — chosen over Railway because Railway no longer
+# has a free tier (decided with the PM; not revisited here).
+#
+# The Next.js frontend is deployed separately to Vercel and is NOT part of
+# this blueprint — see frontend/ for that.
+#
+# How to use: in the Render dashboard, "New +" -> "Blueprint", point it at
+# this repo. Render finds this file at the repo root automatically. Every
+# env var below marked `sync: false` has no value here on purpose — Render
+# will prompt for it once during the Blueprint's first deploy and then keep
+# it in the service's Environment tab for future edits (see README.md's
+# "Deployment" section for the exact values to enter, including bucket
+# setup steps for the AWS_* vars below).
+services:
+  - type: web
+    name: constra-backend
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    # collectstatic runs at build time (not deploy time) since it doesn't
+    # touch the database and only needs to happen once per code change —
+    # whitenoise's CompressedManifestStaticFilesStorage then serves the
+    # collected files straight out of the built image.
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput"
+    # Render's documented pre-deploy/release-phase hook — runs after a
+    # successful build but before traffic is cut over to the new instance.
+    # NOTE: as of this writing, preDeployCommand is only honored on paid
+    # instance types, not the `free` plan set above. start.sh (invoked by
+    # startCommand below) re-runs the same idempotent migrate as a fallback
+    # so migrations are guaranteed to run on every plan, including free —
+    # see start.sh's own comment for the full rationale. Keep this line
+    # anyway: it's what gives paid plans Render's proper pre-deploy
+    # migration step (schema is up to date *before* the old instance is
+    # torn down), and it's a harmless no-op re-run on the free plan.
+    preDeployCommand: "python manage.py migrate --noinput"
+    startCommand: "bash start.sh"
+    healthCheckPath: /api/drawings/
+    envVars:
+      # --- Required — must be set by the PM in Render's dashboard ---
+      - key: SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      # --- Safe defaults, provided here ---
+      - key: DEBUG
+        value: "False"
+      - key: PYTHON_VERSION
+        value: "3.12.5"
+      # Render auto-injects RENDER_EXTERNAL_HOSTNAME (this service's own
+      # "<app>.onrender.com" host) and settings.py reads it automatically —
+      # no need to also list it in ALLOWED_HOSTS below.
+      - key: ALLOWED_HOSTS
+        value: ""
+      # Comma-separated. Add the real Vercel deployment URL(s) here once
+      # known, e.g. "https://constra.vercel.app". Never wildcarded.
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      # Absolute URL this service is reachable at — used to build
+      # Page.image_url when the S3 vars below are absent. Once
+      # RENDER_EXTERNAL_HOSTNAME is known (first deploy), set this to
+      # "https://<that-hostname>". Irrelevant once S3 media storage is
+      # configured (S3Storage.url() already returns absolute URLs).
+      - key: BACKEND_BASE_URL
+        sync: false
+      # --- Optional — only needed for the Gemini "Generate Estimate"
+      # feature; the endpoint returns 503 without it, everything else
+      # still works ---
+      - key: GEMINI_API_KEY
+        sync: false
+      # --- Not actually optional for a real deploy — S3-compatible media
+      # storage (recommended: Cloudflare R2). All of AWS_ACCESS_KEY_ID /
+      # AWS_SECRET_ACCESS_KEY / AWS_STORAGE_BUCKET_NAME must be set together
+      # to switch storage on; otherwise Django keeps using local disk, which
+      # does NOT survive a Render redeploy (ephemeral filesystem) — AND (per
+      # DEBUG=False above) a Django system check (drawings.W001) will print
+      # a loud warning in the deploy logs on every `migrate`/`check` rather
+      # than let this go unnoticed. See README.md's "Setting up
+      # S3-compatible media storage" section for bucket creation +
+      # public-read policy steps — this is the one var group the PM must
+      # not skip. ---
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
+      # Leave unset for real AWS S3. Set for Cloudflare R2, e.g.
+      # "https://<account_id>.r2.cloudflarestorage.com".
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false
+      # "auto" works for R2; use the real AWS region (e.g. "us-east-1")
+      # for real AWS S3.
+      - key: AWS_S3_REGION_NAME
+        value: "auto"

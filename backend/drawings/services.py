@@ -1,16 +1,26 @@
 """Shared logic for turning source files (PDF or raster image) into a
-persisted Drawing + Page row(s), backed by PNGs under MEDIA_ROOT.
+persisted Drawing + Page row(s), backed by PNGs written through Django's
+Storage API (`django.core.files.storage.default_storage`) under the
+`pages/<drawing_id>/page-XXX.png` key layout.
 
 Used by both the `import_pdf` management command and the upload API view
-(`DrawingCreateView`) so there is exactly one place that knows the
-on-disk layout (`MEDIA_ROOT/pages/<drawing_id>/page-XXX.png`) and how a
-Page's `image_url` is built.
+(`DrawingCreateView`) so there is exactly one place that knows that key
+layout and how a Page's `image_url` is built.
+
+Goes through the Storage API rather than raw filesystem paths so this
+works unmodified whether `default_storage` is local disk (dev/tests) or
+an S3-compatible bucket (prod — see config.settings' USE_S3_MEDIA). Local
+disk is still what backs `default_storage` in dev, so nothing here needs
+to change to keep local dev/tests working exactly as before.
 """
 
+import io
 from pathlib import Path
 
 import pypdfium2 as pdfium
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from PIL import Image, UnidentifiedImageError
@@ -29,43 +39,67 @@ class SourceFileError(ValueError):
     """
 
 
-def _page_out_dir(drawing_id) -> Path:
-    out_dir = Path(settings.MEDIA_ROOT) / "pages" / str(drawing_id)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    return out_dir
+def _build_image_url(name: str) -> str:
+    """Turn a storage-relative key into the absolute URL stored on Page.image_url.
+
+    `default_storage.url()` already returns a fully-qualified URL (bucket/
+    CDN domain included) for the S3 backend; for local FileSystemStorage it
+    only returns a MEDIA_URL-relative path, so that case still needs
+    BACKEND_BASE_URL prefixed to match this project's existing contract of
+    always handing the frontend an absolute image_url.
+    """
+    url = default_storage.url(name)
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    return f"{settings.BACKEND_BASE_URL}{url}"
 
 
-def _build_image_url(drawing_id, filename: str) -> str:
-    relative_url = f"{settings.MEDIA_URL}pages/{drawing_id}/{filename}"
-    return f"{settings.BACKEND_BASE_URL}{relative_url}"
-
-
-def _page_file_path(drawing_id, page_number: int) -> Path:
-    return _page_out_dir(drawing_id) / f"page-{page_number:03d}.png"
+def page_png_storage_name(drawing_id, page_number: int) -> str:
+    """Canonical storage-relative key for a page PNG — the single source of
+    truth both this module and ocr.py build reads/writes from."""
+    return f"pages/{drawing_id}/page-{page_number:03d}.png"
 
 
 def page_png_path(drawing_id, page_number: int) -> Path:
-    """Public accessor for the on-disk page PNG path — used by ocr.py so
-    every consumer of the `MEDIA_ROOT/pages/<drawing_id>/page-XXX.png`
-    layout goes through this one place instead of recomputing it."""
-    return _page_file_path(drawing_id, page_number)
+    """Local-disk path for a page PNG. Only meaningful when the active
+    storage backend is filesystem-based (local dev / tests) — kept around
+    because that's exactly the environment this is used in (e.g. tests
+    writing a fixture PNG directly). Prod (S3-backed) code must go through
+    `page_png_storage_name()` + `default_storage` instead, never this."""
+    return Path(settings.MEDIA_ROOT) / page_png_storage_name(drawing_id, page_number)
 
 
-def _write_page_png(drawing_id, page_number: int, pil_image: Image.Image) -> tuple[str, int, int, Path]:
-    """Save a single page's PIL image as a PNG, return (image_url, width, height, file_path)."""
+def _write_page_png(drawing_id, page_number: int, pil_image: Image.Image) -> tuple[str, int, int, str]:
+    """Save a single page's PIL image as a PNG via the Storage API, return
+    (image_url, width, height, storage_name)."""
     width, height = pil_image.size
-    file_path = _page_file_path(drawing_id, page_number)
-    pil_image.save(file_path, format="PNG")
-    return _build_image_url(drawing_id, file_path.name), width, height, file_path
+    name = page_png_storage_name(drawing_id, page_number)
+
+    buffer = io.BytesIO()
+    pil_image.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    # FileSystemStorage's default behavior on a name collision is to
+    # *rename* (page-001_abc123.png) rather than overwrite, which would
+    # silently orphan the old file and break the stable URL contract — so
+    # delete first for that backend. Skip the extra exists()/delete()
+    # round-trip on S3, which already has AWS_S3_FILE_OVERWRITE=True and
+    # replaces the key in place on save().
+    if not settings.USE_S3_MEDIA and default_storage.exists(name):
+        default_storage.delete(name)
+    default_storage.save(name, ContentFile(buffer.read()))
+
+    return _build_image_url(name), width, height, name
 
 
 def _delete_page_files(drawing_id, page_numbers) -> None:
-    """Delete the on-disk PNGs for the given page numbers of a drawing.
+    """Delete the stored PNGs for the given page numbers of a drawing.
 
-    Safe to call with page numbers whose files don't exist (missing_ok).
+    Safe to call with page numbers whose files don't exist — both
+    FileSystemStorage and S3Storage no-op/ignore a delete of a missing key.
     """
     for page_number in page_numbers:
-        _page_file_path(drawing_id, page_number).unlink(missing_ok=True)
+        default_storage.delete(page_png_storage_name(drawing_id, page_number))
 
 
 def create_or_update_drawing_from_pdf_bytes(name: str, pdf_bytes: bytes) -> Drawing:
@@ -86,9 +120,10 @@ def create_or_update_drawing_from_pdf_bytes(name: str, pdf_bytes: bytes) -> Draw
         if page_count == 0:
             raise SourceFileError("PDF has no pages")
 
-        # PNGs written to disk aren't part of the DB transaction below, so
-        # track them here to clean up on failure and avoid leaving orphans.
-        written_files: list[Path] = []
+        # PNGs written via the Storage API aren't part of the DB transaction
+        # below, so track their storage names here to clean up on failure
+        # and avoid leaving orphans (on disk locally, or in the bucket).
+        written_names: list[str] = []
 
         try:
             with transaction.atomic():
@@ -117,8 +152,8 @@ def create_or_update_drawing_from_pdf_bytes(name: str, pdf_bytes: bytes) -> Draw
                             f"Could not render page {page_number} — PDF may be corrupt or truncated: {err}"
                         ) from err
 
-                    image_url, width, height, file_path = _write_page_png(drawing.id, page_number, pil_image)
-                    written_files.append(file_path)
+                    image_url, width, height, storage_name = _write_page_png(drawing.id, page_number, pil_image)
+                    written_names.append(storage_name)
 
                     Page.objects.update_or_create(
                         drawing=drawing,
@@ -138,9 +173,9 @@ def create_or_update_drawing_from_pdf_bytes(name: str, pdf_bytes: bytes) -> Draw
         except SourceFileError:
             # The atomic block above has already rolled back every DB change
             # from this call. Also remove any page PNGs written this run so
-            # a partial render doesn't leave orphaned files on disk.
-            for path in written_files:
-                path.unlink(missing_ok=True)
+            # a partial render doesn't leave orphaned files behind.
+            for stored_name in written_names:
+                default_storage.delete(stored_name)
             raise
     finally:
         pdf.close()
@@ -177,7 +212,7 @@ def create_drawing_from_image(name: str, uploaded_file: UploadedFile) -> Drawing
             # page content that's about to be overwritten.
             Annotation.objects.filter(drawing=drawing).delete()
 
-        image_url, width, height, _file_path = _write_page_png(drawing.id, 1, pil_image)
+        image_url, width, height, _storage_name = _write_page_png(drawing.id, 1, pil_image)
         Page.objects.update_or_create(
             drawing=drawing,
             page_number=1,

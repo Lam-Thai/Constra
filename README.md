@@ -20,6 +20,7 @@ Engineer role, and then extended with an AI estimating feature.
 - [What a session looks like](#what-a-session-looks-like)
 - [Run it on your own computer](#run-it-on-your-own-computer)
 - [When something goes wrong](#when-something-goes-wrong)
+- [Deployment](#deployment)
 - [How the AI estimate works](#how-the-ai-estimate-works)
 - [How this was built: an AI team, not a single assistant](#how-this-was-built-an-ai-team-not-a-single-assistant)
 - [Where this could go next](#where-this-could-go-next)
@@ -333,6 +334,85 @@ cd backend && .venv/Scripts/python.exe manage.py test drawings --keepdb
 
 `--keepdb` reuses the test database instead of rebuilding it — faster, and
 it avoids a leftover-database quirk with this hosting setup.
+
+---
+
+## Deployment
+
+The two halves deploy to two different platforms, matching the local
+two-terminal split above.
+
+**Frontend → Vercel.** Connect this repo, set the project root to
+`frontend/`, and add one environment variable: `NEXT_PUBLIC_API_BASE_URL`,
+set to the deployed backend's URL (e.g. `https://constra-backend.onrender.com`
+— no trailing slash). Framework, build command, and output are all
+auto-detected for a standard Next.js app, so no `vercel.json` or build
+override is needed. Redeploy after changing the env var — Next.js inlines
+`NEXT_PUBLIC_*` values at build time.
+
+**Backend → Render.** Covered separately via `render.yaml` at the repo
+root (Infrastructure-as-Code — Render reads it directly); see that file
+for the full list of environment variables to set in Render's dashboard.
+
+### Setting up S3-compatible media storage (required for a durable deploy)
+
+Render's web service disk is **ephemeral** — it's wiped on every deploy and
+restart. Without a bucket configured, imported page PNGs disappear the
+moment the service restarts, and (worse) `DEBUG=False` in production means
+nothing even serves `/media/...` locally as a fallback — every `Page.image_url`
+404s from the first request. A Django system check (`drawings.W001`) prints
+a loud warning in the deploy logs on every `migrate`/`check` if this is
+missed, so it's caught in logs rather than discovered by whoever opens the
+app first. So one of the two options below is not optional for a real
+Render deploy.
+
+Either works — `render.yaml` uses the generic `django-storages` S3 backend
+against whichever endpoint you configure, so the same three required env
+vars (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_STORAGE_BUCKET_NAME`)
+apply to both.
+
+**Option A — Cloudflare R2 (recommended: no egress fees, generous free tier)**
+
+1. In the Cloudflare dashboard, go to **R2 Object Storage** → **Create bucket**. Name it anything (e.g. `constra-media`).
+2. Under the bucket's **Settings** tab, set **Public Access** to allow public reads — either enable the bucket's public development URL, or attach a custom domain, and set the bucket's access policy to allow anonymous `GetObject`. R2 doesn't support S3's per-object ACLs (`AWS_DEFAULT_ACL` is deliberately left `None` in `settings.py` for this reason) — public read has to be a bucket-level policy, not a per-upload flag.
+3. Under **Manage R2 API Tokens**, create an API token scoped to that bucket with **Object Read & Write** permission. Copy the **Access Key ID** and **Secret Access Key** — R2 only shows the secret once.
+4. Note your **Account ID** (shown in the R2 dashboard URL / sidebar) — the S3-compatible endpoint is `https://<account_id>.r2.cloudflarestorage.com`.
+5. Set these in Render's Environment tab:
+   - `AWS_ACCESS_KEY_ID` — the R2 token's Access Key ID
+   - `AWS_SECRET_ACCESS_KEY` — the R2 token's Secret Access Key
+   - `AWS_STORAGE_BUCKET_NAME` — the bucket name from step 1
+   - `AWS_S3_ENDPOINT_URL` — `https://<account_id>.r2.cloudflarestorage.com`
+   - `AWS_S3_REGION_NAME` — `auto` (already the `render.yaml` default)
+
+**Option B — AWS S3**
+
+1. In the S3 console, **Create bucket**. Any name/region. Leave "Block all public access" **unchecked** for this bucket, since page PNGs need to be publicly fetchable by the frontend's `<img>` tags.
+2. Attach a bucket policy granting public `s3:GetObject`, e.g.:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Sid": "PublicReadGetObject",
+       "Effect": "Allow",
+       "Principal": "*",
+       "Action": "s3:GetObject",
+       "Resource": "arn:aws:s3:::YOUR-BUCKET-NAME/*"
+     }]
+   }
+   ```
+3. Create an IAM user (or role) with a policy scoped to `s3:PutObject`, `s3:GetObject`, and `s3:DeleteObject` on that bucket's ARN — not a broader S3 grant. Generate an access key for it.
+4. Set these in Render's Environment tab:
+   - `AWS_ACCESS_KEY_ID` — the IAM user's access key ID
+   - `AWS_SECRET_ACCESS_KEY` — the IAM user's secret access key
+   - `AWS_STORAGE_BUCKET_NAME` — the bucket name from step 1
+   - `AWS_S3_REGION_NAME` — the bucket's real region, e.g. `us-east-1`
+   - Leave `AWS_S3_ENDPOINT_URL` unset — real AWS S3 doesn't need it.
+
+Once all three required vars (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+`AWS_STORAGE_BUCKET_NAME`) are set together, `USE_S3_MEDIA` in
+`backend/config/settings.py` switches on automatically and every new page
+import writes through `django-storages`' `S3Storage` instead of local disk
+— no code change or redeploy-time flag needed beyond setting the env vars.
 
 ---
 
